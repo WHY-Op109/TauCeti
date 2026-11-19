@@ -18,6 +18,10 @@ by a global group point is an automorphism. The orbit morphism intertwines left
 translation on the group with translation on the acted-on object. Moving its base
 point corresponds instead to right multiplication on the group.
 
+When `(g, x) ↦ (g • x, x)` is an isomorphism, that is for a pseudo-torsor, the orbit
+morphism of a global point is an isomorphism, and every point over a test object `T`
+trivializes the action after taking the product with `T`.
+
 These constructions apply in particular to group schemes acting on schemes over a
 base. All identities are identities of morphisms, rather than only of global points.
 They use Mathlib's `Hom.mulAction` and the existing group-object `TauCeti.leftTranslation`.
@@ -64,6 +68,59 @@ theorem mul_orbitMap (x : 𝟙_ C ⟶ X) :
 theorem orbitMap_comp (x : 𝟙_ C ⟶ X) (f : X ⟶ Y) [IsModHom G f] :
     orbitMap G x ≫ f = orbitMap G (x ≫ f) := by
   simp [orbitMap, IsModHom.map_smul, Category.assoc]
+
+attribute [local instance] ModObj.regular in
+/-- The orbit morphism is equivariant for the action of `G` on itself by left multiplication. -/
+instance isModHom_orbitMap (x : 𝟙_ C ⟶ X) : IsModHom G (orbitMap G x) where
+  smul_hom := by simpa using mul_orbitMap G x
+
+section PseudoTorsor
+
+/-! ### Pseudo-torsors
+
+When `(g, x) ↦ (g • x, x)` is an isomorphism `G ⊗ X ≅ X ⊗ X`, the action is simply transitive on
+the points of `X` over every test object: `X` is a pseudo-torsor under `G`. -/
+
+variable [IsIso (leftSMul G X)]
+
+/-- If `(g, x) ↦ (g • x, x)` is an isomorphism, then for every point `x : T ⟶ X` the map
+`g ↦ g • x` from points of `G` to points of `X` is bijective. -/
+theorem smul_left_bijective_of_isIso_leftSMul {T : C} (x : T ⟶ X) :
+    Function.Bijective fun g : T ⟶ G ↦ g • x :=
+  (Function.bijective_iff_existsUnique _).2
+    ((isIso_leftSMul_iff (M := G) (X := X)).1 inferInstance T x)
+
+/-- If `(g, x) ↦ (g • x, x)` is an isomorphism, then the orbit morphism `g ↦ g • x` of a global
+point is an isomorphism `G ≅ X`: a pseudo-torsor with a global point is trivial. -/
+theorem isIso_orbitMap (x : 𝟙_ C ⟶ X) : IsIso (orbitMap G x) := by
+  rw [isIso_iff_yoneda_map_bijective]
+  intro T
+  simpa only [comp_orbitMap] using smul_left_bijective_of_isIso_leftSMul G (toUnit T ≫ x)
+
+/-- If `(g, x) ↦ (g • x, x)` is an isomorphism, then every point `p : T ⟶ X` trivializes `X`
+over `T`: the morphism `G ⊗ T ⟶ X ⊗ T`, `(g, t) ↦ (g • p t, t)`, compatible with the projections
+to `T`, is an isomorphism. -/
+theorem isIso_lift_fst_smul_snd {T : C} (p : T ⟶ X) :
+    IsIso (lift (fst G T • (snd G T ≫ p)) (snd G T)) := by
+  rw [isIso_iff_yoneda_map_bijective]
+  intro Z
+  have key (w : Z ⟶ G ⊗ T) : w ≫ lift (fst G T • (snd G T ≫ p)) (snd G T) =
+      lift ((w ≫ fst G T) • ((w ≫ snd G T) ≫ p)) (w ≫ snd G T) := by
+    rw [comp_lift, comp_smul, Category.assoc]
+  refine ⟨fun w w' h ↦ ?_, fun v ↦ ?_⟩
+  · dsimp only at h
+    rw [key, key] at h
+    have h₂ : w ≫ snd G T = w' ≫ snd G T := by simpa using congr($h ≫ snd X T)
+    have h₁ := congr($h ≫ fst X T)
+    simp only [lift_fst, h₂] at h₁
+    exact hom_ext _ _ ((smul_left_bijective_of_isIso_leftSMul G _).1 h₁) h₂
+  · obtain ⟨g, hg⟩ := (smul_left_bijective_of_isIso_leftSMul G ((v ≫ snd X T) ≫ p)).2 (v ≫ fst X T)
+    refine ⟨lift g (v ≫ snd X T), ?_⟩
+    dsimp only at hg ⊢
+    rw [key]
+    ext <;> simp [← hg]
+
+end PseudoTorsor
 
 end Monoid
 
